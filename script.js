@@ -5,6 +5,7 @@ let blendPosition = 0;
 let fromColour;
 let toColour;
 let blendLength = 100;
+let pause = false;
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
@@ -15,11 +16,16 @@ function setup() {
     py = y;
 
     background(0);
+
+    document.addEventListener("keypress", (event) => {
+        if (event.key === "p")
+            pause = !pause;
+    })
 }
 
 function draw() {
-    // if (frameCount === 600)
-    //     return;
+    if (pause)
+        return;
 
     frameCount++;
     blendPosition++;
