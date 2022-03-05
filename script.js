@@ -4,8 +4,10 @@ let frameCount = 0;
 let blendPosition = 0;
 let fromColour;
 let toColour;
-let blendLength = 100;
+let blendLength = 0;
 let pause = false;
+let fromStrokeWeight = 1;
+let toStrokeWeight = 1;
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
@@ -16,7 +18,10 @@ function setup() {
     py = y;
 
     background(0);
+    setupEventListeners();
+}
 
+function setupEventListeners() {
     document.addEventListener("keypress", (event) => {
         if (event.key === "p")
             pause = !pause;
@@ -33,17 +38,22 @@ function draw() {
     if (frameCount === 1) {
         fromColour = getRandomRgba();
         toColour = getRandomRgba();
+        toStrokeWeight = Math.floor(random(1, 10));
+        blendLength = Math.floor(random(50, 1000));
     }
 
     if (isEndOfBlend()) {
         fromColour = toColour;
         toColour = getRandomRgba();
-        console.log(`from ${JSON.stringify(fromColour)}`);
-        console.log(`to  + ${JSON.stringify(toColour)}`);
+        blendLength = Math.floor(random(50, 1000));
         blendPosition = 1;
+        fromStrokeWeight = toStrokeWeight;
+        toStrokeWeight = Math.floor(random(1, 10));
     }
 
-    const fadeColour = getBlendRgba(blendPosition, 100);
+    const percent = blendPosition / blendLength;
+    const blendColour = getBlendRgba(blendPosition, percent);
+    const blendStrokeWeight = getBlendStrokeWeight(percent);
 
     x += (noise(frameCount * 0.01) - 0.5) * 10;
     y += (noise(frameCount * 0.02) - 0.5) * 10;
@@ -61,7 +71,8 @@ function draw() {
         py = y = height;
     }
 
-    stroke(fadeColour.r, fadeColour.g, fadeColour.b, fadeColour.a);
+    strokeWeight(blendStrokeWeight);
+    stroke(blendColour.r, blendColour.g, blendColour.b, blendColour.a);
     line(x, y, px, py);
 
     px = x;
@@ -77,9 +88,7 @@ function getRandomRgba() {
     return {r, b, g, a}
 }
 
-function getBlendRgba(blendPosition, blendLength) {
-    const percent = blendPosition / blendLength;
-
+function getBlendRgba(blendPosition, percent) {
     const r = getBlendValue("r", percent);
     const g = getBlendValue("g", percent);
     const b = getBlendValue("b", percent);
@@ -95,16 +104,21 @@ function getBlendValue(colourParam, percent) {
     const to = toColour[colourParam];
     const difference = Math.abs(from - to);
 
-    let value;
+    return calculateBlendValue(from, to, difference, percent);
+}
 
+function getBlendStrokeWeight(percent) {
+    const difference = Math.abs(fromStrokeWeight - toStrokeWeight);
+    return Math.floor(calculateBlendValue(fromStrokeWeight, toStrokeWeight, difference, percent));
+}
+
+function calculateBlendValue(from, to, difference, percent) {
     if (from < to)
-        value = from + (difference * percent);
+        return from + (difference * percent);
     else if (from > to)
-        value = from - (difference * percent);
+        return from - (difference * percent);
     else
-        value = from;
-
-    return value;
+        return from;
 }
 
 function isEndOfBlend() {
