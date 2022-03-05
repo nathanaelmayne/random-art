@@ -84,6 +84,8 @@ function getBlendRgba(blendPosition, blendLength) {
     const g = getBlendValue("g", percent);
     const b = getBlendValue("b", percent);
     const a = getBlendValue("a", percent);
+
+    console.log(`${frameCount} ${blendPosition} r: ${r} | g: ${g} | b: ${b} | a: ${a}`);
     
     return {r, g, b, a};
 }
@@ -91,7 +93,7 @@ function getBlendRgba(blendPosition, blendLength) {
 function getBlendValue(colourParam, percent) {
     const from = fromColour[colourParam];
     const to = toColour[colourParam];
-    const difference = Math.abs(fromColour.r - toColour.r);
+    const difference = Math.abs(from - to);
 
     let value;
 
@@ -101,10 +103,6 @@ function getBlendValue(colourParam, percent) {
         value = from - (difference * percent);
     else
         value = from;
-
-    if (colourParam === "r"){
-        console.log(`${frameCount} ${blendPosition} from: ${from} | current: ${value} | to: ${to}`);
-    }
 
     return value;
 }
