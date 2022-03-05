@@ -5,9 +5,12 @@ let blendPosition = 0;
 let fromColour;
 let toColour;
 let blendLength = 0;
-let pause = false;
+let freeze = false;
+let cleanUp = false;
+let stop = false;
 let fromStrokeWeight = 1;
 let toStrokeWeight = 1;
+let lines = [];
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
@@ -23,16 +26,42 @@ function setup() {
 
 function setupEventListeners() {
     document.addEventListener("keypress", (event) => {
-        if (event.key === "p")
-            pause = !pause;
-    })
+        if (event.key === "f") freeze = !freeze;
+    });
+
+    document.addEventListener("keypress", (event) => {
+        if (event.key === "c") {
+            cleanUp = !cleanUp;
+        }
+    });
+
+    document.addEventListener("keypress", (event) => {
+        if (event.key === "s") {
+            stop = !stop;
+        }
+    });
 }
 
 function draw() {
-    if (pause)
-        return;
+    if (freeze) return;
+
+    if (cleanUp) lines.splice(0, 1);
 
     frameCount++;
+
+    if (!stop) {
+        createLine();
+    }
+
+    background(0);
+    lines.forEach((l) => {
+        strokeWeight(l.strokeWeight);
+        stroke(l.colour.r, l.colour.g, l.colour.b, l.colour.a);
+        line(l.line.x, l.line.y, l.line.px, l.line.py);
+    });
+}
+
+function createLine() {
     blendPosition++;
 
     if (frameCount === 1) {
@@ -71,9 +100,16 @@ function draw() {
         py = y = height;
     }
 
-    strokeWeight(blendStrokeWeight);
-    stroke(blendColour.r, blendColour.g, blendColour.b, blendColour.a);
-    line(x, y, px, py);
+    lines.push({
+        strokeWeight: blendStrokeWeight,
+        colour: blendColour,
+        line: {
+            x: x,
+            y: y,
+            px: px,
+            py: py,
+        },
+    });
 
     px = x;
     py = y;
@@ -85,7 +121,7 @@ function getRandomRgba() {
     b = random(255);
     a = random(150, 255);
 
-    return {r, b, g, a}
+    return { r, b, g, a };
 }
 
 function getBlendRgba(blendPosition, percent) {
@@ -94,9 +130,11 @@ function getBlendRgba(blendPosition, percent) {
     const b = getBlendValue("b", percent);
     const a = getBlendValue("a", percent);
 
-    console.log(`${frameCount} ${blendPosition} r: ${r} | g: ${g} | b: ${b} | a: ${a}`);
-    
-    return {r, g, b, a};
+    console.log(
+        `${frameCount} ${blendPosition} r: ${r} | g: ${g} | b: ${b} | a: ${a}`
+    );
+
+    return { r, g, b, a };
 }
 
 function getBlendValue(colourParam, percent) {
@@ -109,16 +147,20 @@ function getBlendValue(colourParam, percent) {
 
 function getBlendStrokeWeight(percent) {
     const difference = Math.abs(fromStrokeWeight - toStrokeWeight);
-    return Math.floor(calculateBlendValue(fromStrokeWeight, toStrokeWeight, difference, percent));
+    return Math.floor(
+        calculateBlendValue(
+            fromStrokeWeight,
+            toStrokeWeight,
+            difference,
+            percent
+        )
+    );
 }
 
 function calculateBlendValue(from, to, difference, percent) {
-    if (from < to)
-        return from + (difference * percent);
-    else if (from > to)
-        return from - (difference * percent);
-    else
-        return from;
+    if (from < to) return from + difference * percent;
+    else if (from > to) return from - difference * percent;
+    else return from;
 }
 
 function isEndOfBlend() {
