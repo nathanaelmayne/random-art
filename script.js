@@ -1,25 +1,18 @@
-let x, y;
-let px, py;
 let frameCount = 0;
 let blendPosition = 0;
-let fromColour;
-let toColour;
 let blendLength = 0;
 let freeze = false;
 let cleanUp = false;
-let stop = false;
-let fromStrokeWeight = 1;
-let toStrokeWeight = 1;
+let stopDrawing = false;
 let lines = [];
+let pens = [
+    {
+        lines: [],
+    },
+];
 
 function setup() {
     createCanvas(windowWidth, windowHeight);
-
-    x = width / 2;
-    y = height / 2;
-    px = x;
-    py = y;
-
     background(0);
     setupEventListeners();
 }
@@ -30,89 +23,121 @@ function setupEventListeners() {
     });
 
     document.addEventListener("keypress", (event) => {
-        if (event.key === "c") {
-            cleanUp = !cleanUp;
-        }
+        if (event.key === "c") cleanUp = !cleanUp;
     });
 
     document.addEventListener("keypress", (event) => {
-        if (event.key === "s") {
-            stop = !stop;
-        }
+        if (event.key === "s") stopDrawing = !stopDrawing;
+    });
+
+    document.addEventListener("keypress", (event) => {
+        if (event.key === "a") pens.push({ lines: [] });
+    });
+
+    document.addEventListener("keypress", (event) => {
+        if (event.key === "r") pens.splice(pens.length - 1, 1);
     });
 }
 
 function draw() {
     if (freeze) return;
 
-    if (cleanUp) lines.splice(0, 1);
+    if (cleanUp)
+        pens.forEach(p => p.lines.splice(0, 1));
 
     frameCount++;
 
-    if (!stop) {
-        createLine();
+    if (!stopDrawing) {
+        pens.forEach((pen) => {
+            createLine(pen);
+        });
     }
 
     background(0);
-    lines.forEach((l) => {
-        strokeWeight(l.strokeWeight);
-        stroke(l.colour.r, l.colour.g, l.colour.b, l.colour.a);
-        line(l.line.x, l.line.y, l.line.px, l.line.py);
-    });
+
+    pens.flatMap(pen => pen.lines)
+        .forEach(l => {
+            strokeWeight(l.strokeWeight);
+            stroke(l.colour.r, l.colour.g, l.colour.b, l.colour.a);
+            line(l.line.x, l.line.y, l.line.px, l.line.py);
+    }   );
 }
 
-function createLine() {
-    blendPosition++;
+function createLine(pen) {
+    let previous = pen.lines[pen.lines.length - 1];
+    let current = previous || {
+        blendPosition: 1
+    };
 
-    if (frameCount === 1) {
-        fromColour = getRandomRgba();
-        toColour = getRandomRgba();
-        toStrokeWeight = Math.floor(random(1, 10));
-        blendLength = Math.floor(random(50, 1000));
+    if (current.blendPosition === 1) {
+        current.fromColour = getRandomRgba();
+        current.toColour = getRandomRgba();
+        current.fromStrokeWeight = 1;
+        current.toStrokeWeight = Math.floor(random(1, 10));
+        current.blendLength = Math.floor(random(50, 1000));
+    } 
+    
+    current.blendPosition++;
+
+    if (previous && isEndOfBlend(previous)) {
+        current.fromColour = previous.toColour;
+        current.toColour = getRandomRgba();
+        current.blendLength = Math.floor(random(50, 1000));
+        current.blendPosition = 1;
+        current.fromStrokeWeight = previous.toStrokeWeight;
+        current.toStrokeWeight = Math.floor(random(1, 10));
     }
 
-    if (isEndOfBlend()) {
-        fromColour = toColour;
-        toColour = getRandomRgba();
-        blendLength = Math.floor(random(50, 1000));
-        blendPosition = 1;
-        fromStrokeWeight = toStrokeWeight;
-        toStrokeWeight = Math.floor(random(1, 10));
+    const percent = current.blendPosition / current.blendLength;
+    const blendColour = getBlendRgba(current, percent);
+    const blendStrokeWeight = getBlendStrokeWeight(current, percent);
+    const startPos = {
+        x: previous ? previous.line.x : width / 2,
+        y: previous ? previous.line.y : height / 2,
+    };
+
+    let penLine = {};
+
+    penLine.x = startPos.x;
+    penLine.y = startPos.y;
+    penLine.px = startPos.x;
+    penLine.py = startPos.y;
+    penLine.x += (noise(frameCount * 0.01) - 0.5) * 10;
+    penLine.y += (noise(frameCount * 0.02) - 0.5) * 10;
+
+    if (penLine.x > width) {
+        penLine.px = 0;
+        penLine.x  = 0;
+    }
+    if (penLine.x  < 0) {
+        penLine.px = width;
+        penLine.x = width;
+    }
+    if (penLine.y > height) {
+        penLine.py = 0;
+        penLine.y = 0;
+    }
+    if (penLine.y< 0) {
+        penLine.py = height;
+        penLine.y = height;
     }
 
-    const percent = blendPosition / blendLength;
-    const blendColour = getBlendRgba(blendPosition, percent);
-    const blendStrokeWeight = getBlendStrokeWeight(percent);
-
-    x += (noise(frameCount * 0.01) - 0.5) * 10;
-    y += (noise(frameCount * 0.02) - 0.5) * 10;
-
-    if (x > width) {
-        px = x = 0;
-    }
-    if (x < 0) {
-        px = x = width;
-    }
-    if (y > height) {
-        py = y = 0;
-    }
-    if (y < 0) {
-        py = y = height;
-    }
-
-    lines.push({
+    pen.lines.push({
         strokeWeight: blendStrokeWeight,
         colour: blendColour,
+        blendPosition: current.blendPosition,
+        blendLength: current.blendLength,
+        fromColour: current.fromColour,
+        toColour: current.toColour,
+        fromStrokeWeight: current.fromStrokeWeight,
+        toStrokeWeight: current.toStrokeWeight,
         line: {
-            x: x,
-            y: y,
-            px: px,
-            py: py,
+            x: penLine.x,
+            y: penLine.y,
+            px: penLine.px,
+            py: penLine.py,
         },
     });
-
-    px = x;
-    py = y;
 }
 
 function getRandomRgba() {
@@ -124,33 +149,33 @@ function getRandomRgba() {
     return { r, b, g, a };
 }
 
-function getBlendRgba(blendPosition, percent) {
-    const r = getBlendValue("r", percent);
-    const g = getBlendValue("g", percent);
-    const b = getBlendValue("b", percent);
-    const a = getBlendValue("a", percent);
-
-    console.log(
-        `${frameCount} ${blendPosition} r: ${r} | g: ${g} | b: ${b} | a: ${a}`
-    );
+function getBlendRgba(penLine, percent) {
+    const r = getBlendValue(penLine, "r", percent);
+    const g = getBlendValue(penLine, "g", percent);
+    const b = getBlendValue(penLine, "b", percent);
+    const a = getBlendValue(penLine, "a", percent);
 
     return { r, g, b, a };
 }
 
-function getBlendValue(colourParam, percent) {
-    const from = fromColour[colourParam];
-    const to = toColour[colourParam];
+function getBlendValue(penLine, colourParam, percent) {
+    const from = penLine.fromColour[colourParam];
+    const to = penLine.toColour[colourParam];
     const difference = Math.abs(from - to);
 
-    return calculateBlendValue(from, to, difference, percent);
+    let value = calculateBlendValue(from, to, difference, percent);
+
+    return value;
 }
 
-function getBlendStrokeWeight(percent) {
-    const difference = Math.abs(fromStrokeWeight - toStrokeWeight);
+function getBlendStrokeWeight(penLine, percent) {
+    const difference = Math.abs(
+        penLine.fromStrokeWeight - penLine.toStrokeWeight
+    );
     return Math.floor(
         calculateBlendValue(
-            fromStrokeWeight,
-            toStrokeWeight,
+            penLine.fromStrokeWeight,
+            penLine.toStrokeWeight,
             difference,
             percent
         )
@@ -163,6 +188,6 @@ function calculateBlendValue(from, to, difference, percent) {
     else return from;
 }
 
-function isEndOfBlend() {
-    return blendPosition === blendLength;
+function isEndOfBlend(penLine) {
+    return penLine.blendPosition === penLine.blendLength;
 }
